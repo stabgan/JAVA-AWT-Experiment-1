@@ -1,7 +1,3 @@
-package com.stabgan.java;
-
-import com.stabgan.java.BCLL;
-
 import java.awt.Button;
 import java.awt.Canvas;
 import java.awt.Color;
@@ -11,98 +7,126 @@ import java.awt.Label;
 import java.awt.TextField;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
 
-class newCanvas extends Canvas{
-	
-	private static final long serialVersionUID = 1L;
-	int x ,y;
-	BCLL draw;
-	
-	public newCanvas(BCLL draw ,int x, int y) {  
-        setBackground (Color.GRAY);
-	}
-	
-	
-	public void paint(Graphics g)  
-	  {  
-		if(this.draw.size == 1) {
-			g.setColor(Color.red);
-			g.fillOval(this.x, this.y, 3, 3);
-		}
-		else if(draw.size == 2){
-			
-			g.setColor(Color.red);
-			g.fillOval(this.x, this.y, 3, 3);
-			g.setColor(Color.black);
-			g.drawLine(this.draw.head.prev.x, this.draw.head.prev.y, this.x, this.y);
-		} 
-		else {
-			g.setColor(Color.red);
-			g.fillOval(this.x, this.y, 3, 3);
-			g.setColor(Color.black);
-			g.drawLine(this.draw.head.prev.x, this.draw.head.prev.y, this.x, this.y);
-			g.drawLine(this.draw.head.x, this.draw.head.y, this.x, this.y);
-		}
-	  }
+/**
+ * Custom Canvas that draws a polygon from points stored in a
+ * Bidirectional Circular Linked List (BCLL).
+ *
+ * Fixes applied:
+ * - Constructor now assigns draw, x, y fields (was missing → NPE).
+ * - paint() iterates the full linked list so ALL edges render on every repaint.
+ */
+class PolygonCanvas extends Canvas {
+
+    private static final long serialVersionUID = 1L;
+    private final BCLL draw;
+
+    public PolygonCanvas(BCLL draw) {
+        this.draw = draw;
+        setBackground(Color.WHITE);
+    }
+
+    @Override
+    public void paint(Graphics g) {
+        if (draw == null || draw.size == 0) {
+            return;
+        }
+
+        BCLL.Node current = draw.head;
+
+        // Draw all vertices and edges by traversing the circular list
+        for (int i = 0; i < draw.size; i++) {
+            // Draw vertex dot
+            g.setColor(Color.RED);
+            g.fillOval(current.x - 3, current.y - 3, 6, 6);
+
+            // Draw edge to next vertex (closes polygon on last iteration)
+            if (draw.size > 1) {
+                g.setColor(Color.BLACK);
+                g.drawLine(current.x, current.y, current.next.x, current.next.y);
+            }
+
+            current = current.next;
+        }
+    }
 }
 
-public class methods extends Frame{
-	
+/**
+ * AWT Frame application that lets users enter X,Y coordinates
+ * to dynamically draw a polygon on a canvas.
+ *
+ * Fixes applied:
+ * - Removed unused Graphics field (getGraphics() returns null during construction).
+ * - Removed broken "new newCanvas()" call that created an orphan object.
+ * - Canvas now repaints after each new point is added.
+ * - Added WindowListener so the window can be closed properly.
+ * - Empty catch block now prints the error for debugging.
+ * - Removed incorrect package declaration (files are in the default package).
+ */
+public class methods extends Frame {
 
-	private static final long serialVersionUID = 1L;
-	BCLL draw = new BCLL();
-	Canvas can  = new newCanvas(draw,0,0);
-	Graphics g = getGraphics();
-	
-	public methods() {
-		
-		Label title = new Label();
-		title.setText("Enter Coordinates");
-		title.setBounds(95, 40, 120, 20);
-		add(title);
-		Button b=new Button("Draw");  
-		b.setBounds(120,150,60,20);// setting button position  
-		
-		TextField x = new TextField("X");
-		TextField y = new TextField("Y");
-		x.setBounds(80, 100, 50, 20);
-		y.setBounds(170, 100, 50, 20);
-		x.setBackground(Color.lightGray);
-		y.setBackground(Color.lightGray);
-	
-		add(x);
-		add(y);
-		b.addActionListener(new ActionListener() {
-			public void actionPerformed(ActionEvent e) {
-				String s1 = x.getText();
-				String s2 = y.getText();
-				try {
-				int xx = Integer.parseInt(s1);
-				int yy = Integer.parseInt(s2);
-				draw.append(xx, yy);
-				new newCanvas(draw,xx,yy);
-				}
-				catch(Exception lol){
+    private static final long serialVersionUID = 1L;
+    private final BCLL draw = new BCLL();
+    private final PolygonCanvas canvas = new PolygonCanvas(draw);
 
-				}
-	
-			}
-		});
-		
-		
-		add(b);
-		can.setBounds(0, 300, 300, 400);
-		can.setBackground(Color.WHITE);
-		add(can);
-		setSize(300,800);//frame size 300 width and 300 height  
-		setLayout(null);//no layout manager  
-		setVisible(true);
-		
-	}
+    public methods() {
+        super("AWT Polygon Drawing");
 
-	public static void main(String[] args){
-		new methods();
+        // --- UI Components ---
+        Label title = new Label("Enter Coordinates");
+        title.setBounds(95, 40, 120, 20);
+        add(title);
 
-	}
-	
+        TextField xField = new TextField("X");
+        TextField yField = new TextField("Y");
+        xField.setBounds(80, 100, 50, 20);
+        yField.setBounds(170, 100, 50, 20);
+        xField.setBackground(Color.LIGHT_GRAY);
+        yField.setBackground(Color.LIGHT_GRAY);
+        add(xField);
+        add(yField);
+
+        Button drawBtn = new Button("Draw");
+        drawBtn.setBounds(120, 150, 60, 20);
+        drawBtn.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                String s1 = xField.getText().trim();
+                String s2 = yField.getText().trim();
+                try {
+                    int xx = Integer.parseInt(s1);
+                    int yy = Integer.parseInt(s2);
+                    draw.append(xx, yy);
+                    canvas.repaint();   // Trigger canvas redraw with new point
+                } catch (NumberFormatException ex) {
+                    System.err.println("Invalid coordinates: " + s1 + ", " + s2);
+                }
+            }
+        });
+        add(drawBtn);
+
+        // --- Canvas ---
+        canvas.setBounds(0, 200, 300, 500);
+        add(canvas);
+
+        // --- Frame setup ---
+        setSize(300, 750);
+        setLayout(null);
+        setVisible(true);
+
+        // Window close handler
+        addWindowListener(new WindowAdapter() {
+            @Override
+            public void windowClosing(WindowEvent e) {
+                dispose();
+                System.exit(0);
+            }
+        });
+    }
+
+    public static void main(String[] args) {
+        new methods();
+    }
 }
