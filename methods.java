@@ -11,98 +11,162 @@ import java.awt.Label;
 import java.awt.TextField;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
 
-class newCanvas extends Canvas{
+class PolygonCanvas extends Canvas {
 	
 	private static final long serialVersionUID = 1L;
-	int x ,y;
-	BCLL draw;
+	BCLL draw; // Package-private for access from PolygonDrawer
 	
-	public newCanvas(BCLL draw ,int x, int y) {  
-        setBackground (Color.GRAY);
+	public PolygonCanvas(BCLL draw) {  
+        this.draw = draw;
+        setBackground(Color.WHITE);
 	}
 	
-	
-	public void paint(Graphics g)  
-	  {  
-		if(this.draw.size == 1) {
-			g.setColor(Color.red);
-			g.fillOval(this.x, this.y, 3, 3);
+	@Override
+	public void paint(Graphics g) {
+		super.paint(g);
+		
+		if (draw == null || draw.size == 0) {
+			return;
 		}
-		else if(draw.size == 2){
+		
+		// Get all points
+		int[][] points = draw.getAllPoints();
+		
+		// Draw all points as red dots
+		g.setColor(Color.RED);
+		for (int[] point : points) {
+			g.fillOval(point[0] - 2, point[1] - 2, 4, 4);
+		}
+		
+		// Draw lines connecting points
+		g.setColor(Color.BLACK);
+		if (draw.size >= 2) {
+			for (int i = 0; i < points.length; i++) {
+				int nextIndex = (i + 1) % points.length;
+				g.drawLine(points[i][0], points[i][1], 
+						  points[nextIndex][0], points[nextIndex][1]);
+			}
+		}
+		
+		// If we have 3+ points, fill the polygon
+		if (draw.size >= 3) {
+			int[] xPoints = new int[points.length];
+			int[] yPoints = new int[points.length];
 			
-			g.setColor(Color.red);
-			g.fillOval(this.x, this.y, 3, 3);
-			g.setColor(Color.black);
-			g.drawLine(this.draw.head.prev.x, this.draw.head.prev.y, this.x, this.y);
-		} 
-		else {
-			g.setColor(Color.red);
-			g.fillOval(this.x, this.y, 3, 3);
-			g.setColor(Color.black);
-			g.drawLine(this.draw.head.prev.x, this.draw.head.prev.y, this.x, this.y);
-			g.drawLine(this.draw.head.x, this.draw.head.y, this.x, this.y);
+			for (int i = 0; i < points.length; i++) {
+				xPoints[i] = points[i][0];
+				yPoints[i] = points[i][1];
+			}
+			
+			g.setColor(new Color(0, 0, 255, 50)); // Semi-transparent blue
+			g.fillPolygon(xPoints, yPoints, points.length);
 		}
-	  }
+	}
 }
 
-public class methods extends Frame{
+class PolygonDrawer extends Frame {
 	
-
 	private static final long serialVersionUID = 1L;
-	BCLL draw = new BCLL();
-	Canvas can  = new newCanvas(draw,0,0);
-	Graphics g = getGraphics();
+	private BCLL draw = new BCLL();
+	private PolygonCanvas canvas;
 	
-	public methods() {
+	public PolygonDrawer() {
+		initializeComponents();
+	}
+	
+	private void initializeComponents() {
+		setTitle("Java AWT Polygon Drawing Experiment");
 		
-		Label title = new Label();
-		title.setText("Enter Coordinates");
+		Label title = new Label("Enter Coordinates");
 		title.setBounds(95, 40, 120, 20);
 		add(title);
-		Button b=new Button("Draw");  
-		b.setBounds(120,150,60,20);// setting button position  
 		
-		TextField x = new TextField("X");
-		TextField y = new TextField("Y");
-		x.setBounds(80, 100, 50, 20);
-		y.setBounds(170, 100, 50, 20);
-		x.setBackground(Color.lightGray);
-		y.setBackground(Color.lightGray);
-	
-		add(x);
-		add(y);
-		b.addActionListener(new ActionListener() {
+		Button drawButton = new Button("Add Point");  
+		drawButton.setBounds(120, 150, 80, 25);
+		
+		Button clearButton = new Button("Clear");
+		clearButton.setBounds(210, 150, 60, 25);
+		
+		TextField xField = new TextField();
+		TextField yField = new TextField();
+		xField.setBounds(80, 100, 50, 20);
+		yField.setBounds(170, 100, 50, 20);
+		xField.setBackground(Color.LIGHT_GRAY);
+		yField.setBackground(Color.LIGHT_GRAY);
+		
+		Label xLabel = new Label("X:");
+		Label yLabel = new Label("Y:");
+		xLabel.setBounds(65, 100, 15, 20);
+		yLabel.setBounds(155, 100, 15, 20);
+		
+		add(xLabel);
+		add(yLabel);
+		add(xField);
+		add(yField);
+		
+		// Add point button action
+		drawButton.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
-				String s1 = x.getText();
-				String s2 = y.getText();
 				try {
-				int xx = Integer.parseInt(s1);
-				int yy = Integer.parseInt(s2);
-				draw.append(xx, yy);
-				new newCanvas(draw,xx,yy);
+					String xText = xField.getText().trim();
+					String yText = yField.getText().trim();
+					
+					if (!xText.isEmpty() && !yText.isEmpty()) {
+						int x = Integer.parseInt(xText);
+						int y = Integer.parseInt(yText);
+						
+						// Adjust coordinates relative to canvas
+						draw.append(x, y - 300);
+						canvas.repaint();
+						
+						// Clear fields for next input
+						xField.setText("");
+						yField.setText("");
+						xField.requestFocus();
+					}
+				} catch (NumberFormatException ex) {
+					// Invalid input - ignore
 				}
-				catch(Exception lol){
-
-				}
-	
 			}
 		});
 		
+		// Clear button action
+		clearButton.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent e) {
+				draw = new BCLL();
+				canvas.draw = draw;
+				canvas.repaint();
+				xField.setText("");
+				yField.setText("");
+				xField.requestFocus();
+			}
+		});
 		
-		add(b);
-		can.setBounds(0, 300, 300, 400);
-		can.setBackground(Color.WHITE);
-		add(can);
-		setSize(300,800);//frame size 300 width and 300 height  
-		setLayout(null);//no layout manager  
+		add(drawButton);
+		add(clearButton);
+		
+		canvas = new PolygonCanvas(draw);
+		canvas.setBounds(0, 300, 300, 400);
+		add(canvas);
+		
+		setSize(300, 750);
+		setLayout(null);
+		setResizable(false);
 		setVisible(true);
 		
+		// Close operation
+		addWindowListener(new WindowAdapter() {
+			public void windowClosing(WindowEvent windowEvent) {
+				System.exit(0);
+			}
+		});
 	}
 
-	public static void main(String[] args){
-		new methods();
-
+	public static void main(String[] args) {
+		new PolygonDrawer();
 	}
 	
 }
